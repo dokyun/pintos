@@ -108,5 +108,5 @@ void test_print_name (void)
   {
     msg("Course: SSE3004");
     msg("ID:     2011313220");
-    msg("Name:   Do-Gyun Jang");
+    msg("Name:   DOGYUN JANG");
   }

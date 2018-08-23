@@ -20,6 +20,9 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+/* alarm_clock */
+static struct list wait_list;
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -92,6 +95,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&wait_list); /* alarm_clock */
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -123,6 +127,7 @@ void
 thread_tick (void) 
 {
   struct thread *t = thread_current ();
+  struct list_elem *e;
 
   /* Update statistics. */
   if (t == idle_thread)
@@ -133,6 +138,21 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
+
+  /* alarm_clock */
+  for (e = list_begin (&wait_list); e != list_end (&wait_list);
+       e = list_next (e))
+    {
+      struct thread *tmp = list_entry (e, struct thread, elem);
+      if (tmp->alarm > timer_ticks())
+        break;
+      else
+      {
+        list_remove (e);
+        thread_unblock (tmp);
+      }
+    }
+  /* /alarm_clock */
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -218,6 +238,35 @@ thread_block (void)
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
+}
+
+/* alarm_clock */
+static bool
+alarm_clock_less (const struct list_elem *a_, const struct list_elem *b_,
+            void *aux UNUSED) 
+{
+  const struct thread *a = list_entry (a_, struct thread, elem);
+  const struct thread *b = list_entry (b_, struct thread, elem);
+  
+  return a->alarm < b->alarm;
+}
+
+/* alarm_clock */
+void
+thread_sleep (int64_t ticks)
+{
+  struct thread *t = thread_current ();
+  enum intr_level old_level;
+
+  old_level = intr_disable ();
+
+  t->alarm = ticks + timer_ticks ();
+
+  /* push sorted */
+  list_insert_ordered (&wait_list, &t->elem, alarm_clock_less, NULL);
+  thread_block ();
+
+  intr_set_level (old_level);
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.

@@ -84,6 +84,17 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
+/* alarm_clock */
+static bool
+alarm_clock_less (const struct list_elem *a_, const struct list_elem *b_,
+            void *aux UNUSED) 
+{
+  const struct thread *a = list_entry (a_, struct thread, elem);
+  const struct thread *b = list_entry (b_, struct thread, elem);
+  
+  return a->alarm < b->alarm;
+}
+
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
@@ -96,8 +107,20 @@ timer_sleep (int64_t ticks)
     thread_yield ();*/
 
   /* alarm_clock */
+  struct thread *t = thread_current ();
+  enum intr_level old_level;
   ASSERT (intr_get_level () == INTR_ON);
-  thread_sleep (timer_ticks () + ticks);
+
+  old_level = intr_disable ();
+
+  t->alarm = ticks + timer_ticks ();
+
+    /* push sorted */
+  list_insert_ordered (&wait_list, &t->elem, alarm_clock_less, NULL);
+  thread_block ();
+
+  intr_set_level (old_level);
+  /* /alarm_clock */
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -174,8 +197,8 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  ticks++;
-  thread_tick ();
+  int64_t now = ++ticks;
+  thread_tick (now);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

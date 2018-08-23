@@ -20,8 +20,7 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
-/* alarm_clock */
-static struct list wait_list;
+struct list wait_list; /* alarm_clock */
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -124,9 +123,10 @@ thread_start (void)
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
-thread_tick (void) 
+thread_tick (int64_t now_ticks) 
 {
   struct thread *t = thread_current ();
+  struct thread *tmp;
   struct list_elem *e;
 
   /* Update statistics. */
@@ -140,15 +140,14 @@ thread_tick (void)
     kernel_ticks++;
 
   /* alarm_clock */
-  for (e = list_begin (&wait_list); e != list_end (&wait_list);
-       e = list_next (e))
+  for (e = list_begin (&wait_list); e != list_end (&wait_list);)
     {
-      struct thread *tmp = list_entry (e, struct thread, elem);
-      if (tmp->alarm > timer_ticks())
+      tmp = list_entry (e, struct thread, elem);
+      if (tmp->alarm > now_ticks)
         break;
       else
       {
-        list_remove (e);
+        e = list_remove (e);
         thread_unblock (tmp);
       }
     }
@@ -238,35 +237,6 @@ thread_block (void)
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
-}
-
-/* alarm_clock */
-static bool
-alarm_clock_less (const struct list_elem *a_, const struct list_elem *b_,
-            void *aux UNUSED) 
-{
-  const struct thread *a = list_entry (a_, struct thread, elem);
-  const struct thread *b = list_entry (b_, struct thread, elem);
-  
-  return a->alarm < b->alarm;
-}
-
-/* alarm_clock */
-void
-thread_sleep (int64_t ticks)
-{
-  struct thread *t = thread_current ();
-  enum intr_level old_level;
-
-  old_level = intr_disable ();
-
-  t->alarm = ticks + timer_ticks ();
-
-  /* push sorted */
-  list_insert_ordered (&wait_list, &t->elem, alarm_clock_less, NULL);
-  thread_block ();
-
-  intr_set_level (old_level);
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.

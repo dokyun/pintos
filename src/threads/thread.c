@@ -147,8 +147,8 @@ thread_tick (int64_t now_ticks)
         break;
       else
       {
-        e = list_remove (e);
-        thread_unblock (tmp);
+        e = list_remove (e);  /* remove from wait_list first! */
+        thread_unblock (tmp); /* and then add to ready_list */
       }
     }
   /* /alarm_clock */

@@ -115,7 +115,7 @@ timer_sleep (int64_t ticks)
 
   t->alarm = ticks + timer_ticks ();
 
-    /* push sorted */
+    /* push ordered */
   list_insert_ordered (&wait_list, &t->elem, alarm_clock_less, NULL);
   thread_block ();
 

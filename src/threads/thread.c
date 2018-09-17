@@ -20,7 +20,7 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
-struct list wait_list; /* alarm_clock */
+static struct list wait_list; /* alarm_clock */
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -158,6 +158,24 @@ thread_tick (int64_t now_ticks)
     intr_yield_on_return ();
 }
 
+/* alarm_clock */
+static bool
+alarm_clock_less (const struct list_elem *a_, const struct list_elem *b_,
+            void *aux UNUSED) 
+{
+  const struct thread *a = list_entry (a_, struct thread, elem);
+  const struct thread *b = list_entry (b_, struct thread, elem);
+  
+  return a->alarm < b->alarm;
+}
+
+/* alarm_clock */
+void
+thread_sleep (struct thread * t)
+{
+  list_insert_ordered (&wait_list, &t->elem, alarm_clock_less, NULL);
+}
+
 /* Prints thread statistics. */
 void
 thread_print_stats (void) 
@@ -241,7 +259,7 @@ thread_block (void)
 }
 
 /* priority_scheduling */
-static bool
+bool
 priority_higher (const struct list_elem *a_, const struct list_elem *b_,
             void *aux UNUSED) 
 {
@@ -370,7 +388,14 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  /* thread_current () -> priority = new_priority */
+  /* priority_donation */
+  struct thread * t= thread_current ();
+  if (t->origin_priority != -1)
+    t->origin_priority = new_priority;
+  else
+    t->priority = new_priority;
+  /* /priority_donation */
 
   thread_yield (); /* priority_scheduling */
 }
@@ -451,6 +476,20 @@ idle (void *idle_started_ UNUSED)
     }
 }
 
+/* priority_donation */
+bool
+is_wait_list (struct list_elem * e)
+{
+  struct list_elem * tmp;
+
+  for (tmp = list_begin(&wait_list); tmp != list_end(&wait_list);
+        tmp = list_next (tmp))
+  {
+    if (tmp == e) return true;
+  }
+  return false;
+}
+
 /* Function used as the basis for a kernel thread. */
 static void
 kernel_thread (thread_func *function, void *aux) 
@@ -499,6 +538,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->origin_priority = -1;  /* priority_donation */
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();

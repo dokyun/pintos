@@ -84,17 +84,6 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-/* alarm_clock */
-static bool
-alarm_clock_less (const struct list_elem *a_, const struct list_elem *b_,
-            void *aux UNUSED) 
-{
-  const struct thread *a = list_entry (a_, struct thread, elem);
-  const struct thread *b = list_entry (b_, struct thread, elem);
-  
-  return a->alarm < b->alarm;
-}
-
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
@@ -116,7 +105,7 @@ timer_sleep (int64_t ticks)
   t->alarm = ticks + timer_ticks ();
 
     /* push ordered */
-  list_insert_ordered (&wait_list, &t->elem, alarm_clock_less, NULL);
+  thread_sleep (t);
   thread_block ();
 
   intr_set_level (old_level);

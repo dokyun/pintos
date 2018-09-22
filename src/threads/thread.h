@@ -89,6 +89,8 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     int origin_priority;                /* priority_donation */
+    int nice;                           /* mlfqs_scheduling */
+    int recent_cpu;                     /* mlfqs_scheduling */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -141,7 +143,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool is_wait_list (struct list_elem *);
+
+/* priority_donation */
+bool is_wait_list (struct list_elem *); 
 extern bool priority_higher (const struct list_elem *, const struct list_elem *, void *);
+/* /priority_donation */
 
 #endif /* threads/thread.h */

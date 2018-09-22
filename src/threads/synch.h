@@ -30,7 +30,7 @@ void lock_acquire (struct lock *);
 bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
 bool lock_held_by_current_thread (const struct lock *);
-void priority_donation (struct lock * ); /* priority_donation */
+void lock_hold_check (void); /* priority_scheduling_block */
 
 /* Condition variable. */
 struct condition 
